@@ -1,2 +1,7 @@
-fastapi==0.112.2
-uvicorn==0.30.5
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+python-dotenv
+pytest
+pydantic-settings
