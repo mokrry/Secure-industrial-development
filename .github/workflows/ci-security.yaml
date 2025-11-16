@@ -2,8 +2,13 @@ name: CI Security
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
+      - p07
   pull_request:
+    branches:
+      - main
 
 jobs:
   lint-dockerfile:
@@ -39,10 +44,17 @@ jobs:
         uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: course-project-mokrry-app:ci
-          trivy-config: trivy.yaml
+          format: sarif                # формируем SARIF-отчёт
+          output: trivy-results.sarif  # кладём в файл, который потом загрузим
+          severity: CRITICAL,HIGH      # можно сузить уровень
+          ignore-unfixed: true         # не ругаться на нефиксируемые
+          vuln-type: os,library
+          scanners: vuln,config,secret
+          trivy-config: trivy.yaml     # твой кастомный конфиг
 
       - name: Upload Trivy report
         uses: actions/upload-artifact@v4
         with:
           name: trivy-report
           path: trivy-results.sarif
+  
