@@ -1,7 +1,11 @@
 from typing import List, Optional
+
 from sqlalchemy.orm import Session
-from app.schemas.topic import TopicCreate, TopicUpdate, Topic as TopicSchema
+
 from app.repositories.topic_repo import TopicRepository
+from app.schemas.topic import Topic as TopicSchema
+from app.schemas.topic import TopicCreate, TopicUpdate
+
 
 class TopicService:
     def __init__(self, db: Session):

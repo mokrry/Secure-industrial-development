@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text
+
 from app.db import Base
+
 
 class Topic(Base):
     __tablename__ = "topics"
