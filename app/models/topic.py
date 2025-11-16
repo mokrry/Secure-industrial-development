@@ -9,4 +9,6 @@ class Topic(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(128), nullable=False, index=True)
     description = Column(Text, nullable=True)
-    status = Column(String(32), nullable=False, default="planned")  # planned|in_progress|done
+    status = Column(
+        String(32), nullable=False, default="planned"
+    )  # planned|in_progress|done

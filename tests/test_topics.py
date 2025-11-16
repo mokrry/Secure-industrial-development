@@ -55,7 +55,8 @@ def test_topics_flow():
     with TestClient(app_test) as client:
         # POST /topics
         r = client.post(
-            "/api/v1/topics", json={"title": "Crypto", "description": "Basics", "status": "planned"}
+            "/api/v1/topics",
+            json={"title": "Crypto", "description": "Basics", "status": "planned"},
         )
         assert r.status_code == 201
         tid = r.json()["id"]

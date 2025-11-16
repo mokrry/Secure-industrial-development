@@ -20,5 +20,7 @@ class TopicService:
     def create_topic(self, payload: TopicCreate) -> TopicSchema:
         return self.repo.create(payload)
 
-    def update_topic(self, topic_id: int, payload: TopicUpdate) -> Optional[TopicSchema]:
+    def update_topic(
+        self, topic_id: int, payload: TopicUpdate
+    ) -> Optional[TopicSchema]:
         return self.repo.update(topic_id, payload)
