@@ -1,8 +1,40 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      target: runtime
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
     environment:
-      - PYTHONUNBUFFERED=1
-    profiles: ["dev"]
+      - DB_URL=postgresql+psycopg2://app:app@db:5432/study_planner
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=study_planner
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d study_planner"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # ВАЖНО: здесь НЕТ read_only, security_opt и cap_drop!
+
+volumes:
+  pgdata:

@@ -5,3 +5,4 @@ sqlalchemy
 python-dotenv
 pytest
 pydantic-settings
+psycopg2-binary
