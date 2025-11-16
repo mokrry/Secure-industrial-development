@@ -1,0 +1,14 @@
+scan:
+  vuln-type:
+    - os        # уязвимости в базовом образе
+    - library   # уязвимости в Python-зависимостях
+  severity:
+    - CRITICAL
+    - HIGH
+
+ignore-unfixed: true   # игнорируем уязвимости без патча (опционально)
+
+# Можно добавить "политику": не валить сборку из-за MEDIUM/LOW
+exit-code: 1           # 1 - если найдены CRITICAL/HIGH
+format: sarif
+output: trivy-results.sarif
