@@ -1,8 +1,14 @@
-name: CI (minimal)
+name: CI + CD
 
 on:
   push:
+    branches:
+      - main
+      - p08-cicd-minimal
   pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,8 +19,18 @@ concurrency:
 
 jobs:
   test:
+    name: Test & lint (matrix)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    env:
+      APP_ENV: ci
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,21 +38,20 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          key: ${{ runner.os }}-py${{ matrix.python-version }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            ${{ runner.os }}-py${{ matrix.python-version }}-pip-
 
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install ruff black isort pytest
+          pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Lint
         run: |
@@ -44,14 +59,89 @@ jobs:
           black --check .
           isort --check-only .
 
-      - name: Tests
+      - name: Tests + coverage
         run: |
-          mkdir -p reports
-          pytest -q --maxfail=1 --disable-warnings --junitxml=reports/junit.xml
+          mkdir -p reports/coverage
+          pytest -q --maxfail=1 --disable-warnings \
+            --junitxml=reports/junit-${{ matrix.python-version }}.xml \
+            --cov=app \
+            --cov-report=xml:reports/coverage/coverage-${{ matrix.python-version }}.xml \
+            --cov-report=html:reports/coverage/html-${{ matrix.python-version }}
 
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports
+          name: reports-${{ matrix.python-version }}
           path: reports/**
+          retention-days: 7
+
+  deploy-staging:
+    name: Staging deploy (mock)
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: staging
+    env:
+      APP_ENV: staging
+      DB_URL: ${{ secrets.STAGE_DB_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        run: docker build -t course-project-mokrry-app:staging .
+
+      - name: Smoke test container
+        run: |
+          docker run -d --rm --name course-app-staging -p 8000:8000 \
+            -e DB_URL="${DB_URL}" \
+            course-project-mokrry-app:staging
+          sleep 5
+          curl -f http://localhost:8000/health
+          docker stop course-app-staging
+
+      - name: Save Docker image as artifact
+        run: docker save course-project-mokrry-app:staging -o image-staging.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-staging
+          path: image-staging.tar
+          retention-days: 3
+
+  promote-prod:
+    name: Promote to prod (mock)
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment: production
+    env:
+      APP_ENV: production
+      DB_URL: ${{ secrets.PROD_DB_URL }}
+
+    steps:
+      - name: Download staging image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-staging
+          path: .
+
+      - name: Load image
+        run: docker load -i image-staging.tar
+
+      - name: Run prod smoke test
+        run: |
+          docker run -d --rm --name course-app-prod -p 8000:8000 \
+            -e DB_URL="${DB_URL}" \
+            course-project-mokrry-app:staging
+          sleep 5
+          curl -f http://localhost:8000/health
+          docker stop course-app-prod
