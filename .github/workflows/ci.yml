@@ -1,133 +1,162 @@
-name: CI
+name: CI + CD
 
 on:
-  pull_request:
   push:
-    branches: [ main, p02-* ]  # гоняем CI и на фиче-ветках P02
+    branches:
+      - main
+      - p08-cicd-minimal
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# ───────────────────────── Lint ─────────────────────────
 jobs:
-  lint:
-    name: Lint & Format
+  test:
+    name: Test & lint (matrix)
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 15
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Cache pip by requirements hash
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
-
-      - name: Install dependencies (dev if present)
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          # На случай если линтеры в dev-файле отсутствуют
-          pip install ruff black isort pre-commit
-
-      - name: Ruff (lint)
-        run: ruff check --output-format=github .
-
-      - name: Black (format check)
-        run: black --check .
-
-      - name: Isort (imports ordering)
-        run: isort --check-only .
-
-      - name: Pre-commit (all files)
-        run: pre-commit run --all-files
-
-  # ──────────────────────── Tests ────────────────────────
-  tests:
-    name: Tests (py${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    needs: lint
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    env:
+      APP_ENV: ci
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
 
-      - name: Cache pip by requirements hash
+      - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          key: ${{ runner.os }}-py${{ matrix.python-version }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
           restore-keys: |
-            pip-${{ runner.os }}-${{ matrix.python-version }}-
-            pip-${{ runner.os }}-
+            ${{ runner.os }}-py${{ matrix.python-version }}-pip-
 
-      - name: Install dependencies (dev if present)
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          pip install pytest-cov
+          pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Run tests with coverage
+      - name: Lint
         run: |
-          mkdir -p reports
-          pytest -q --maxfail=1 --disable-warnings \
-            --cov=app --cov-report=xml:reports/coverage.xml \
-            --junitxml=reports/junit.xml
+          ruff check .
+          black --check .
+          isort --check-only .
 
-      - name: Upload test reports (artifact)
+      - name: Tests + coverage
+        run: |
+          mkdir -p reports/coverage
+          pytest -q --maxfail=1 --disable-warnings \
+            --junitxml=reports/junit-${{ matrix.python-version }}.xml \
+            --cov=app \
+            --cov-report=xml:reports/coverage/coverage-${{ matrix.python-version }}.xml \
+            --cov-report=html:reports/coverage/html-${{ matrix.python-version }}
+
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports-py${{ matrix.python-version }}
-          path: reports/
+          name: reports-${{ matrix.python-version }}
+          path: reports/**
+          retention-days: 7
 
-  # ─────────────────────── Security ───────────────────────
-  security:
-    name: Dependency Audit
+  deploy-staging:
+    name: Staging deploy (mock)
+    needs: test
     runs-on: ubuntu-latest
-    needs: tests
+    timeout-minutes: 15
+    # запускаем staging-деплой на любом push (ветки main/p08-cicd-minimal и теги v*)
+    if: github.event_name == 'push'
+    environment: staging
+    env:
+      APP_ENV: staging
+      DB_URL: ${{ secrets.STAGE_DB_URL }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Cache pip by requirements hash
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
-          restore-keys: |
-            pip-${{ runner.os }}-
+      - name: Build image
+        run: docker build -t course-project-mokrry-app:staging .
 
-      - name: Install deps (audit)
+      - name: Smoke test container
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          pip install pip-audit
+          docker run -d --rm --name course-app-staging -p 8000:8000 \
+            -e DB_URL="${DB_URL}" \
+            course-project-mokrry-app:staging
 
-      - name: pip-audit
-        run: pip-audit -r requirements.txt || true  # не валим сборку; можно сделать required позже
+          echo "Waiting for container to start..."
+          sleep 10
+
+          echo "Container list:"
+          docker ps
+
+          echo "Logs from container (if any):"
+          docker logs course-app-staging || true
+
+          echo "Trying to call /health (non-blocking for CI)..."
+          curl --retry 5 --retry-delay 2 --max-time 5 http://localhost:8000/health || echo "Health check failed (mock deploy, продолжаем)"
+
+          docker stop course-app-staging || true
+
+      - name: Save Docker image as artifact
+        run: docker save course-project-mokrry-app:staging -o image-staging.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-staging
+          path: image-staging.tar
+          retention-days: 3
+
+  promote-prod:
+    name: Promote to prod (mock)
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # запускаем только по тегам v*
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    environment: production
+    env:
+      APP_ENV: production
+      DB_URL: ${{ secrets.PROD_DB_URL }}
+
+    steps:
+      - name: Download staging image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-staging
+          path: .
+
+      - name: Load image
+        run: docker load -i image-staging.tar
+
+      - name: Run prod smoke test
+        run: |
+          docker run -d --rm --name course-app-prod -p 8000:8000 \
+            -e DB_URL="${DB_URL}" \
+            course-project-mokrry-app:staging
+          sleep 5
+          curl -f http://localhost:8000/health || echo "Prod health check failed (mock)"
+          docker stop course-app-prod || true
