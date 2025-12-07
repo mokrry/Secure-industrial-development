@@ -35,7 +35,7 @@ jobs:
       - name: SCA Scan (Grype)
         run: |
           set -e
-          docker run --rm -v $PWD:/work -w /work /anchore/grype:v0.104.1 \
+          docker run --rm -v $PWD:/work -w /work anchore/grype:v0.104.1 \
             sbom:/work/EVIDENCE/P09/sbom.json -o json > EVIDENCE/P09/sca_report.json
           echo "# SCA summary" > EVIDENCE/P09/sca_summary.md
           jq '[.matches[].vulnerability.severity] | group_by(.) | map({(.[0]): length}) | add' \
