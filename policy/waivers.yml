@@ -1,14 +1,18 @@
-# policy/waivers.yml — шаблон файла исключений для SBOM & SCA
+# policy/waivers.yml — файл исключений для SBOM & SCA
 # См. project/69_sbom-vuln-mgmt.md для описания политики.
 
-waivers: []
-# Пример записи:
-# waivers:
-#   - id: "CVE-2024-XXXX"
-#     package: "example-lib"
-#     version: "1.2.3"
-#     severity: "High"
-#     reason: "Транзитивная зависимость; нет фикса; компонент не в прод-цепочке."
-#     issue: "https://github.com/<org>/<repo>/issues/123"
-#     expires_at: "2025-12-31"
-#     approved_by: "tutor@example.org"
+waivers:
+  - id: "GHSA-cxww-7g56-2vh6"
+    package: "actions/download-artifact"
+    version: "v4"
+    severity: "High"
+    reason: >
+      GitHub Action используется только в CI для загрузки артефактов.
+      Уязвимость Arbitrary File Write (CVE-2024-42471) в actions/download-artifact
+      (затрагивает версии >=4.0.0,<4.1.3) не влияет напрямую на продовой рантайм
+      приложения; риск принят в учебном проекте.
+      План: в отдельной задаче обновить action до безопасной версии (4.1.3+ или
+      актуального v4) в соответствии с рекомендациями GitHub Advisory Database.
+    issue: "TODO: создать Issue в репозитории для обновления actions/download-artifact"
+    expires_at: "2026-12-31"
+    approved_by: "student@example.com"
