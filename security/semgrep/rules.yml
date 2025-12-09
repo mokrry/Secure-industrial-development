@@ -1,8 +1,8 @@
 rules:
-  # Пример своего правила: запрещаем eval в Python-коде
+  # Custom rule: forbid eval in Python code
   - id: py-unsafe-eval
     languages: [python]
-    message: "Опасное использование eval(). Лучше обойтись без него."
+    message: "Unsafe use of eval(). Avoid using eval."
     severity: ERROR
     pattern: eval($X)
     metadata:
@@ -11,14 +11,13 @@ rules:
       references:
         - "https://cwe.mitre.org/data/definitions/94.html"
 
-  # Пример более «курсового» правила — если захочешь доработать
-  # (сейчас оно ничего не найдёт, но показывает, как писать под проект)
-  - id: fastapi-debug-print
+  # Custom rule: highlight debug print() calls
+  - id: py-debug-print
     languages: [python]
-    message: "Отладочный print(...) в FastAPI-коде. Проверь, что тут нет секретов."
+    message: "Debug print() call. Check that it does not log sensitive data."
     severity: WARNING
     patterns:
       - pattern: print($X)
     metadata:
       category: security
-      description: "Отладочные принты могут случайно логировать чувствительные данные."
+      description: "Debug prints may accidentally log sensitive information."
