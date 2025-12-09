@@ -1,0 +1,24 @@
+rules:
+  # Пример своего правила: запрещаем eval в Python-коде
+  - id: py-unsafe-eval
+    languages: [python]
+    message: "Опасное использование eval(). Лучше обойтись без него."
+    severity: ERROR
+    pattern: eval($X)
+    metadata:
+      category: security
+      cwe: "CWE-94: Code Injection"
+      references:
+        - "https://cwe.mitre.org/data/definitions/94.html"
+
+  # Пример более «курсового» правила — если захочешь доработать
+  # (сейчас оно ничего не найдёт, но показывает, как писать под проект)
+  - id: fastapi-debug-print
+    languages: [python]
+    message: "Отладочный print(...) в FastAPI-коде. Проверь, что тут нет секретов."
+    severity: WARNING
+    patterns:
+      - pattern: print($X)
+    metadata:
+      category: security
+      description: "Отладочные принты могут случайно логировать чувствительные данные."
