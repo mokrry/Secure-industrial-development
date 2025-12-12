@@ -1,0 +1,23 @@
+rules:
+  # Custom rule: forbid eval in Python code
+  - id: py-unsafe-eval
+    languages: [python]
+    message: "Unsafe use of eval(). Avoid using eval."
+    severity: ERROR
+    pattern: eval($X)
+    metadata:
+      category: security
+      cwe: "CWE-94: Code Injection"
+      references:
+        - "https://cwe.mitre.org/data/definitions/94.html"
+
+  # Custom rule: highlight debug print() calls
+  - id: py-debug-print
+    languages: [python]
+    message: "Debug print() call. Check that it does not log sensitive data."
+    severity: WARNING
+    patterns:
+      - pattern: print($X)
+    metadata:
+      category: security
+      description: "Debug prints may accidentally log sensitive information."

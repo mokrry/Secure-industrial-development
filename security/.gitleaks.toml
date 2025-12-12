@@ -1,0 +1,21 @@
+title = "course-project-mokrry gitleaks config (P10)"
+
+# Подключаем встроенные правила Gitleaks (+ свои исключения)
+[extend]
+useDefault = true
+
+[allowlist]
+description = "ignore non-sensitive patterns and artifacts"
+# Пути, которые можно смело игнорировать (репорты, IDE-мусор и т.п.)
+paths = [
+  "EVIDENCE/",
+  ".pytest_cache/",
+  ".idea/",
+]
+commits = []
+
+# Регулярки для явных тестовых «секретов».
+# Добавишь сюда конкретные false positive, когда увидишь отчёт.
+regexes = [
+  '''TEST_SECRET_DO_NOT_USE''',
+]
