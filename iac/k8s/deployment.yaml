@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: study-planner
+  labels:
+    app: study-planner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: study-planner
+  template:
+    metadata:
+      labels:
+        app: study-planner
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: course-project-mokrry-app:1.0.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DB_URL
+              value: "postgresql+psycopg2://app:app@db:5432/study_planner"
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
