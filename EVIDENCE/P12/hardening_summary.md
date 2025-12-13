@@ -1,17 +1,22 @@
 # P12 Hardening summary
 
 ## Dockerfile
-- Base image pinned (python:3.11-slim), no `latest`
-- Runs as non-root user (`appuser`)
-- Healthcheck on `/health`
+- Base image pinned (no `latest`)
+- Runs as non-root user
+- Healthcheck enabled
 
-## IaC (k8s пример)
-- `runAsNonRoot`, `allowPrivilegeEscalation: false`
-- `readOnlyRootFilesystem: true`
-- Drop all Linux capabilities
-- `seccompProfile: RuntimeDefault`
-- `automountServiceAccountToken: false`
+## Docker Compose
+- app: read_only + no-new-privileges + drop ALL caps + tmpfs /tmp
+- db: (planned/implemented) no-new-privileges + drop caps + avoid exposing ports
 
-## Next steps
-- Review Trivy findings and upgrade base image/packages if needed
-- Move DB credentials to Secret/External config (don’t keep passwords in plain env in manifests)
+## IaC (K8s sample)
+- runAsNonRoot, allowPrivilegeEscalation: false
+- readOnlyRootFilesystem: true + tmp volume for /tmp
+- seccompProfile: RuntimeDefault
+- drop ALL capabilities
+- automountServiceAccountToken: false
+
+## Trivy / next steps
+- Review HIGH/CRITICAL
+- Update base image / OS packages if needed
+- Update python deps if CVEs affect used versions
