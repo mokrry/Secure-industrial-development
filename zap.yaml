@@ -3,7 +3,8 @@ env:
   - excludePaths: []
     name: baseline
     urls:
-    - http://host.docker.internal:8000
+    - http://host.docker.internal:8000/api/v1/topics
+    - http://host.docker.internal:8000/
   parameters:
     failOnError: true
     progressToStdout: true
@@ -14,7 +15,7 @@ jobs:
   type: passiveScan-config
 - parameters:
     maxDuration: 1
-    url: http://host.docker.internal:8000
+    url: http://host.docker.internal:8000/
   type: spider
 - parameters:
     maxDuration: 0
